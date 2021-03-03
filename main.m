@@ -6,16 +6,16 @@ clc
 spacing = 'constant';
 [polar, prop, oper, air] = param(spacing);
 
-figure
-subplot(1,2,1);
-plot(polar.alpha,polar.Cl);
-xlabel('\alpha');
-ylabel('C_{l}');
-
-subplot(1,2,2);
-plot(polar.alpha,polar.Cd);
-xlabel('\alpha');
-ylabel('C_{d}');
+% figure
+% subplot(1,2,1);
+% plot(polar.alpha,polar.Cl);
+% xlabel('\alpha');
+% ylabel('C_{l}');
+% 
+% subplot(1,2,2);
+% plot(polar.alpha,polar.Cd);
+% xlabel('\alpha');
+% ylabel('C_{d}');
 %%
 SectionResults = zeros(length(prop.r_R)-1,6);
 for i=1:1
