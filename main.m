@@ -112,12 +112,3 @@ function [AnnulusRadius, a, aprime, f_axial, f_tangential, gamma, Prandtltip,Pra
         end       
     end  
 end
-function c_R = chord_distribution(r_R)
-    c_R = 0.18 - 0.06.*r_R;
-end
-
-function localpitch = pitch_distribution(r_R,collective_blade_twist)
-    twist = -50.*r_R + 35; %local twist [deg]
-    localpitch = twist + collective_blade_twist;
-end
-
