@@ -29,7 +29,7 @@ end
 prop.c_R = chord_distribution(prop.r_R);
 prop.twist = -50*prop.r_R+35; %local twist
 prop.collective_blade_twist = 46;% [degrees]
-prop.pitch = pitch_distribution(prop.r_R, prop.collective_blade_twist);
+prop.pitch = pitch_distribution(prop.r_R, prop.collective_blade_twist);% [deg]
 prop.R = 0.70;%propeller radius [m]
 prop.Nblades = 6;%number of blades
 
