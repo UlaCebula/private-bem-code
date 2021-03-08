@@ -4,7 +4,8 @@ clc
 
 
 spacing = 'constant';
-[polar, prop, oper, air] = param(spacing);
+type = 'WT';
+[polar, prop, oper, air] = param(spacing, type);
 
 figure
 subplot(1,2,1);
@@ -17,12 +18,12 @@ plot(polar.alpha,polar.Cd);
 xlabel('\alpha');
 ylabel('C_{d}');
 %%
-SectionResults = zeros(length(prop.r_R)-1,6);
-for i=1:1
-    prop.chord = chord_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)));%non-dimensional
-    prop.pitch = pitch_distribution(prop.chord,prop.collective_blade_twist);% [deg]    
-    [alpha, a, aprime, f_axial, f_tangential, gamma,Prandtl] = SolveSection(i, polar, prop, air, oper);
-end
+% SectionResults = zeros(length(prop.r_R)-1,6);
+% for i=1:1
+%     prop.chord = chord_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)));%non-dimensional
+%     prop.pitch = pitch_distribution(prop.chord,prop.collective_blade_twist);% [deg]    
+%     [alpha, a, aprime, f_axial, f_tangential, gamma,Prandtl] = SolveSection(i, polar, prop, air, oper);
+% end
 
 % dT = SectionResults(:,4).*prop.Nblades.*prop.dr.*prop.R;
 % CT = sum(dT./(0.5*air.density*(oper.U_inf^2)*);length(prop.r_R)-
@@ -72,8 +73,8 @@ function [f_axial, f_tangential, gamma,InflowAngle, alpha] = SectionLoads(U_axia
     InflowAngle = atan2(U_axial, U_tangential); % [rad]
     alpha = prop.pitch - rad2deg(InflowAngle); 
     U_resultant = norm([U_axial, U_tangential]);
-    cl = interp1(polar.alpha, polar.Cl, alpha)
-    cd = interp1(polar.alpha, polar.Cd, alpha)
+    cl = interp1(polar.alpha, polar.Cl, alpha);
+    cd = interp1(polar.alpha, polar.Cd, alpha);
     lift = 0.5*air.density*(U_resultant^2)*(prop.chord*prop.R)*cl;
     drag = 0.5*air.density*(U_resultant^2)*(prop.chord*prop.R)*cd;
     f_axial = lift*cos(InflowAngle)-drag*sin(InflowAngle);
