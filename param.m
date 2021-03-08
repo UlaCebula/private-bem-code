@@ -1,4 +1,4 @@
-function [polar, prop, oper, air] = param(spacing, type)
+function [polar, prop, oper, air, flagtype] = param(spacing, type)
 %PARAM: outputs geometry and airfoil/flow properties 
 
 %Airfoil polar
@@ -30,7 +30,7 @@ else
 switch spacing
     case 'constant'
         %constant spacing
-        prop.r_R = linspace(prop.blade_root,1.00,100);%constant spacing
+        prop.r_R = linspace(prop.blade_root,1.00,81);%constant spacing
         prop.r_R = prop.r_R(:);%make column vector
         prop.dr = prop.r_R(2:end)-prop.r_R(1:end-1); %non-dimensional length of each section       
 
@@ -63,9 +63,9 @@ else
     prop.Nblades = 3;%number of blades
     
     %Operating conditions
-    oper.U_inf = 10;% [m/s]
-    oper.TSR = 6;%omega*R/V  
-
+    oper.U_inf = 1;% [m/s]
+    oper.TSR = 8;%omega*R/Uinf  
+    oper.omega = (oper.TSR*oper.U_inf)/prop.R;
 end
 
 [air.Temp, air.speed_of_sound, air.pressure, air.density] = atmosisa(2000);
