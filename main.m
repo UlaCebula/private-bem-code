@@ -72,8 +72,8 @@ function [f_axial, f_tangential, gamma,InflowAngle, alpha] = SectionLoads(U_axia
     InflowAngle = atan2(U_axial, U_tangential); % [rad]
     alpha = prop.pitch - rad2deg(InflowAngle); 
     U_resultant = norm([U_axial, U_tangential]);
-    cl = interp1(polar.alpha, polar.Cl, alpha);
-    cd = interp1(polar.alpha, polar.Cd, alpha);
+    cl = interp1(polar.alpha, polar.Cl, alpha)
+    cd = interp1(polar.alpha, polar.Cd, alpha)
     lift = 0.5*air.density*(U_resultant^2)*(prop.chord*prop.R)*cl;
     drag = 0.5*air.density*(U_resultant^2)*(prop.chord*prop.R)*cd;
     f_axial = lift*cos(InflowAngle)-drag*sin(InflowAngle);
@@ -87,8 +87,8 @@ function [alpha, a, aprime, f_axial, f_tangential, gamma, Prandtl]=SolveSection(
     AnnulusArea = pi*(((r_R2*prop.R)^2)-((r_R1*prop.R)^2)); %[m^2]
     AnnulusRadius = 0.5*(r_R1+r_R2)*prop.R;%average radius [m]
     
-    a = 0.3;%axial induction factor
-    aprime = 0;%tangential induction factor
+    a = 0.001;%axial induction factor
+    aprime = 0.0001;%tangential induction factor
     
     N = 1;%number of iterations
     epsilon = 0.0001;
