@@ -28,10 +28,12 @@ for i=1:length(prop.r_R)-1
 end
 % 
 dT = SectionResults(:,4).*prop.Nblades.*(prop.dr.*prop.R);
-CT = sum(dT./(0.5*air.density*(oper.U_inf^2)*(pi*prop.R^2)))
+% CT = sum(dT./(0.5*air.density*(oper.U_inf^2)*(pi*prop.R^2)))
+CT = sum(dT./(0.5*(oper.U_inf^2)*(pi*prop.R^2)))
 
 dP = SectionResults(:,5).*prop.Nblades.*(prop.dr.*prop.R).*SectionResults(:,1).*(oper.omega*prop.R);
-CP = sum(dP./(0.5*air.density*(oper.U_inf^3)*(pi*prop.R^2)))
+% CP = sum(dP./(0.5*air.density*(oper.U_inf^3)*(pi*prop.R^2)))
+CP = sum(dP./(0.5*(oper.U_inf^3)*(pi*prop.R^2)))
 
 %% Functions
 function a = AxialInductionFactor(CT)
@@ -80,11 +82,16 @@ function [f_axial, f_tangential, gamma, alpha, InflowAngle] = SectionLoads(U_axi
     U_resultant = norm([U_axial, U_tangential]);
     cl = interp1(polar.alpha, polar.Cl, alpha);
     cd = interp1(polar.alpha, polar.Cd, alpha);
-    lift = 0.5*air.density*(U_resultant^2)*(prop.sectionchord*prop.R)*cl;
-    drag = 0.5*air.density*(U_resultant^2)*(prop.sectionchord*prop.R)*cd;
+%     lift = 0.5*air.density*(U_resultant^2)*(prop.sectionchord*prop.R)*cl;
+%     drag = 0.5*air.density*(U_resultant^2)*(prop.sectionchord*prop.R)*cd;
+    
+    lift = 0.5*(U_resultant^2)*(prop.sectionchord*prop.R)*cl;
+    drag = 0.5*(U_resultant^2)*(prop.sectionchord*prop.R)*cd;
     f_axial = lift*cos(InflowAngle)+drag*sin(InflowAngle);
     f_tangential = lift*sin(InflowAngle)-drag*cos(InflowAngle);
-    gamma = lift/(air.density*U_resultant);      
+%     gamma = lift/(air.density*U_resultant);      
+    gamma = lift/(U_resultant);      
+
 end
 function Results = SolveSection(index, polar, prop, air, oper)
     r_R1=prop.r_R(index); %non-dimensional
@@ -104,7 +111,8 @@ function Results = SolveSection(index, polar, prop, air, oper)
         [f_axial, f_tangential, gamma, alpha, ~]=SectionLoads(U_axial, U_tangential,prop, polar, air);
         %Thrust coefficient at streamtube        
         load3D_axial = f_axial*prop.Nblades*(prop.dr(index)*prop.R);
-        CT_streamtube= load3D_axial./(0.5*air.density*(oper.U_inf^2)*SectionArea);
+%         CT_streamtube= load3D_axial./(0.5*air.density*(oper.U_inf^2)*SectionArea);
+        CT_streamtube= load3D_axial./(0.5*(oper.U_inf^2)*SectionArea);
         a_new=AxialInductionFactor(CT_streamtube);
         
         [~, ~, Prandtl]=PrandtlTipRootCorrection(prop, SectionRadius, oper, a_new);
