@@ -1,5 +1,5 @@
 clear all
-% close all
+close all
 clc
 
 DEBUG = 0;
