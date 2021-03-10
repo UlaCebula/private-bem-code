@@ -1,5 +1,5 @@
 clear all
-close all
+% close all
 clc
 
 DEBUG = 0;
@@ -9,16 +9,16 @@ type = 'WT';
 
 
 
-figure
-subplot(1,2,1);
-plot(polar.alpha,polar.Cl);
-xlabel('\alpha');
-ylabel('C_{l}');
-
-subplot(1,2,2);
-plot(polar.alpha,polar.Cd);
-xlabel('\alpha');
-ylabel('C_{d}');
+% figure
+% subplot(1,2,1);
+% plot(polar.alpha,polar.Cl);
+% xlabel('\alpha');
+% ylabel('C_{l}');
+% 
+% subplot(1,2,2);
+% plot(polar.alpha,polar.Cd);
+% xlabel('\alpha');
+% ylabel('C_{d}');
 %%
 SectionResults = zeros(length(prop.r_R)-1,8);
 for i=1:length(prop.r_R)-1
@@ -76,7 +76,7 @@ function [ftip, froot, ftotal] = PrandtlTipRootCorrection(prop, SectionRadius, o
         ftotal = 0.0001;
     end
 end
-function [f_axial, f_tangential, gamma, alpha, InflowAngle] = SectionLoads(U_axial, U_tangential, prop, polar, air)
+function [f_axial, f_tangential, gamma, alpha, U_resultant] = SectionLoads(U_axial, U_tangential, prop, polar, air)
     InflowAngle = atan2(U_axial, U_tangential); % [rad]
     alpha = rad2deg(InflowAngle) - prop.sectionpitch; 
     U_resultant = norm([U_axial, U_tangential]);
@@ -108,7 +108,7 @@ function Results = SolveSection(index, polar, prop, air, oper)
     for i=1:N
         U_axial = oper.U_inf*(1-a);
         U_tangential = oper.omega*SectionRadius*(1+aprime);       
-        [f_axial, f_tangential, gamma, alpha, ~]=SectionLoads(U_axial, U_tangential,prop, polar, air);
+        [f_axial, f_tangential, gamma, alpha, InflowAngle]=SectionLoads(U_axial, U_tangential,prop, polar, air);
         %Thrust coefficient at streamtube        
         load3D_axial = f_axial*prop.Nblades*(prop.dr(index)*prop.R);
 %         CT_streamtube= load3D_axial./(0.5*air.density*(oper.U_inf^2)*SectionArea);

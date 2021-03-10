@@ -1,5 +1,5 @@
 clear all
-close all
+% close all
 clc
 
 DEBUG = 0;
@@ -7,52 +7,32 @@ spacing = 'constant';
 type = 'WT';
 [polar, prop, oper, air, propellertype] = param(spacing, type);
 
+%%%
+yaw = deg2rad(5); 
+dPsi = 1;%[deg]
+AzimuthAngle = deg2rad([0:dPsi:360]');
+%%%
 
-
-figure
-subplot(1,2,1);
-plot(polar.alpha,polar.Cl);
-xlabel('\alpha');
-ylabel('C_{l}');
-
-subplot(1,2,2);
-plot(polar.alpha,polar.Cd);
-xlabel('\alpha');
-ylabel('C_{d}');
-%%
-SectionResults = zeros(length(prop.r_R)-1,8);
-for i=1:length(prop.r_R)-1
-    prop.sectionchord = chord_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)), prop.R, propellertype);%non-dimensional
-    prop.sectionpitch = pitch_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)),prop.collective_blade_twist, propellertype);% [deg]
-    SectionResults(i,:) = SolveSection(i, polar, prop, air, oper);
-end
+% figure
+% subplot(1,2,1);
+% plot(polar.alpha,polar.Cl);
+% xlabel('\alpha');
+% ylabel('C_{l}');
 % 
-dT = SectionResults(:,4).*prop.Nblades.*(prop.dr.*prop.R);
-% CT = sum(dT./(0.5*air.density*(oper.U_inf^2)*(pi*prop.R^2)))
-CT = sum(dT./(0.5*(oper.U_inf^2)*(pi*prop.R^2)))
+% subplot(1,2,2);
+% plot(polar.alpha,polar.Cd);
+% xlabel('\alpha');
+% ylabel('C_{d}');
+%%
+% SectionResults = zeros(length(prop.r_R)-1,8);
+for i=1:80
+    prop.sectionchord = chord_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)), prop.R, propellertype);%non-dimensional
+    prop.sectionpitch = pitch_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)),prop.collective_blade_twist, propellertype);% [deg]        
+    [SectionResults(i,:), Inflowangles, alphas(i,:), temp1] = SolveSection(i, polar, prop, air, oper, AzimuthAngle, yaw, dPsi);
+end
 
-dP = SectionResults(:,5).*prop.Nblades.*(prop.dr.*prop.R).*SectionResults(:,1).*(oper.omega*prop.R);
-% CP = sum(dP./(0.5*air.density*(oper.U_inf^3)*(pi*prop.R^2)))
-CP = sum(dP./(0.5*(oper.U_inf^3)*(pi*prop.R^2)))
 
 %% Functions
-function a = AxialInductionFactor(CT)
-    CT1 = 1.816;
-    CT2 = 2*sqrt(CT1)-CT1;
-    %Glauert correction for heavily loaded rotors
-    if (CT<CT2)
-        a = 0.5 - 0.5*sqrt(1-CT);        
-    else
-        top = CT-CT1;
-        btm = 4*sqrt(CT1)-4;
-        a = 1+(top/btm);
-    end
-end
-function aprime = AzimInductionFactor(Fazim, prop, SectionRadius, oper, a, air)    
-    top = Fazim * prop.Nblades;
-    btm = 2*air.density*pi*oper.U_inf*(1-a)*oper.omega*2*SectionRadius^2;    
-    aprime = top/btm;
-end
 function [ftip, froot, ftotal] = PrandtlTipRootCorrection(prop, SectionRadius, oper, a)
     r_R_Section = SectionRadius/prop.R; %non-dimensional
     F1 = (-prop.Nblades/2)*((1-r_R_Section)/r_R_Section)*sqrt(1+(oper.TSR*r_R_Section/(1-a))^2);
@@ -76,56 +56,118 @@ function [ftip, froot, ftotal] = PrandtlTipRootCorrection(prop, SectionRadius, o
         ftotal = 0.0001;
     end
 end
-function [f_axial, f_tangential, gamma, alpha, InflowAngle] = SectionLoads(U_axial, U_tangential, prop, polar, air)
-    InflowAngle = atan2(U_axial, U_tangential); % [rad]
-    alpha = rad2deg(InflowAngle) - prop.sectionpitch; 
-    U_resultant = norm([U_axial, U_tangential]);
-    cl = interp1(polar.alpha, polar.Cl, alpha);
-    cd = interp1(polar.alpha, polar.Cd, alpha);
-%     lift = 0.5*air.density*(U_resultant^2)*(prop.sectionchord*prop.R)*cl;
-%     drag = 0.5*air.density*(U_resultant^2)*(prop.sectionchord*prop.R)*cd;
+function [temp1, InflowAngles, alphas, cl, cd] = AnnularRingProperties(yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle, polar, index)
+    [temp1, InflowAngles] = inflowangle(yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle);%should be an array of phi for constant radius
+    alphas = rad2deg(InflowAngles) - prop.sectionpitch;
+    cl = interp1(polar.alpha, polar.Cl, alphas);
+    cd = interp1(polar.alpha, polar.Cd, alphas);
+end
+function [temp1, phi] = inflowangle(yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle)
+    %Equation 3.131
+    K_c = K(yaw, a);%constant for constant yaw, 0 for 0 deg yaw
+    chi = WakeSkewAngle(yaw, a);%constant for constant yaw, 0 for 0 deg yaw
+    r_R = SectionRadius./prop.R;
+    F = FlowExpansionFunction(r_R);%constant for constant radius
+    temp1 = a.*(1+F.*K_c.*sin(AzimuthAngle));
+    top = oper.U_inf.*(cos(yaw)-temp1)+(oper.omega.*SectionRadius.*aprime.*cos(AzimuthAngle).*sin(chi).*(1+sin(AzimuthAngle).*sin(chi)));
+    temp1 = oper.omega.*SectionRadius.*(1+aprime.*cos(chi).*(1+sin(AzimuthAngle).*sin(chi)));
+    temp2 = a.*tan(chi/2).*(1+F.*K_c.*sin(AzimuthAngle)) - sin(yaw);
+    btm = temp1 + oper.U_inf.*cos(AzimuthAngle).*temp2;
+    phi = atan(top./btm);
+end
+function Uresultant = ResultantVelocityBladeElement(SectionRadius, prop, oper, AzimuthAngle, yaw, a, aprime)
+    % Equation 3.139 in wind energy book
+    r_R = SectionRadius/prop.R;
+    chi = WakeSkewAngle(yaw, a);
+    temp1 = (cos(yaw)-a)+oper.TSR.*r_R.*aprime.*cos(AzimuthAngle).*sin(chi).*(1+sin(AzimuthAngle).*sin(chi));
+    temp2 = (oper.TSR.*r_R.*(1+aprime.*cos(chi).*(1+sin(AzimuthAngle).*sin(chi)))+cos(AzimuthAngle).*(atan(chi/2)-sin(yaw)));
+    Uresultant = sqrt((oper.U_inf.^2).*((temp1.^2)+(temp2.^2)));
+end
+function [a] = CalculateNewAxialInduction(W, SectionRotorSolidity, Cx, dPsi, Prandtl, yaw, chi, oper)
+    %solve integral discretely
+    NormalisedW = (W.^2)/(oper.U_inf^2); 
+    temp = SectionRotorSolidity.*sum(Cx.*NormalisedW.*dPsi);
     
-    lift = 0.5*(U_resultant^2)*(prop.sectionchord*prop.R)*cl;
-    drag = 0.5*(U_resultant^2)*(prop.sectionchord*prop.R)*cd;
-    f_axial = lift*cos(InflowAngle)+drag*sin(InflowAngle);
-    f_tangential = lift*sin(InflowAngle)-drag*cos(InflowAngle);
-%     gamma = lift/(air.density*U_resultant);      
-    gamma = lift/(U_resultant);      
+    %solve for a
+    fun = @(a) (8*pi*a*Prandtl*(cos(yaw)+tan(chi/2)*sin(yaw)-a*Prandtl*(sec(chi/2))^2))-temp;
+    a = fsolve(fun, 0.5)    
+end
+function aprime = CalculateNewAzimInduction(W, SectionRotorSolidity, Cx, Cy, dPsi, AzimuthAngle, chi, yaw, Prandtl, a, oper, SectionRadius, prop)    
+    NormalisedW = (W.^2)/(oper.U_inf^2); 
+    r_R = SectionRadius/prop.R;
+    temp1 = sum(NormalisedW.*(cos(AzimuthAngle).*sin(chi).*Cx)+(cos(chi).*Cy).*dPsi);
+    temp = SectionRotorSolidity.*temp1;
+    
+    fun = @(aprime) (4*aprime*Prandtl*(cos(yaw)-(a*Prandtl))*oper.TSR*r_R*pi*(1+(cos(chi)).^2))-temp;
+    aprime = fzero(fun, 0.5);  
 
 end
-function Results = SolveSection(index, polar, prop, air, oper)
+function [Results, InflowAngles, alphas, temp1] = SolveSection(index, polar, prop, ~, oper, AzimuthAngle, yaw, dPsi)
+    dPsi = deg2rad(dPsi);
     r_R1=prop.r_R(index); %non-dimensional
     r_R2=prop.r_R(index+1);
     SectionArea = pi*(((r_R2*prop.R)^2)-((r_R1*prop.R)^2)); %[m^2]
     SectionRadius = 0.5*(r_R1+r_R2)*prop.R;%average radius [m]
-    
+    %initialising
     a = 0.1;%axial induction factor
     aprime = 0.1;%tangential induction factor
     
-    N = 100;%number of iterations
+    N = 100;%number of iterations for convergence
     epsilon = 0.00001;
     
     for i=1:N
-        U_axial = oper.U_inf*(1-a);
-        U_tangential = oper.omega*SectionRadius*(1+aprime);       
-        [f_axial, f_tangential, gamma, alpha, ~]=SectionLoads(U_axial, U_tangential,prop, polar, air);
-        %Thrust coefficient at streamtube        
-        load3D_axial = f_axial*prop.Nblades*(prop.dr(index)*prop.R);
-%         CT_streamtube= load3D_axial./(0.5*air.density*(oper.U_inf^2)*SectionArea);
-        CT_streamtube= load3D_axial./(0.5*(oper.U_inf^2)*SectionArea);
-        a_new=AxialInductionFactor(CT_streamtube);
+        %produce array of local AoA, Inflow angles, cl and cd
+        [temp1, InflowAngles, alphas, cl, cd] = AnnularRingProperties(yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle, polar, index);
         
-        [~, ~, Prandtl]=PrandtlTipRootCorrection(prop, SectionRadius, oper, a_new);
-        a_new = a_new/Prandtl;
-        a = 0.75*a+0.25*a_new;%update new value of axial induction via weighted average
+        chi = WakeSkewAngle(yaw, a);
+        W = ResultantVelocityBladeElement(SectionRadius, prop, oper, AzimuthAngle, yaw, a, aprime);%should be array of W here
+        Cx = cl.*cos(InflowAngles)+cd.*sin(InflowAngles);
+        Cy = cl.*sin(InflowAngles)-cd.*cos(InflowAngles);
+        SectionRotorSolidity = (prop.Nblades*prop.sectionchord*prop.R)/(2*pi*SectionRadius);
+        [~, ~, Prandtl]=PrandtlTipRootCorrection(prop, SectionRadius, oper, a);
         
-        aprime = AzimInductionFactor(f_tangential, prop, SectionRadius, oper, a, air);
-        aprime = aprime/Prandtl;
+        %%calculate new value of a here
+        a_new = CalculateNewAxialInduction(W, SectionRotorSolidity, Cx, dPsi, Prandtl, yaw, chi, oper);
+        %%calculate new value of aprime here
+%         [~, ~, Prandtl]=PrandtlTipRootCorrection(prop, SectionRadius, oper, a_new);
+        aprime= CalculateNewAzimInduction(W, SectionRotorSolidity, Cx, Cy, dPsi, AzimuthAngle, chi, yaw, Prandtl, a, oper, SectionRadius, prop);
+        
+%         a = 0.75*a+0.25*a_new;%update new value of axial induction via weighted average
+        
+
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %Thrust coefficient at streamtube        U_axial, U_tangential
+%         load3D_axial = f_axial*prop.Nblades*(prop.dr(index)*prop.R);
+% %         CT_streamtube= load3D_axial./(0.5*air.density*(oper.U_inf^2)*SectionArea);
+%         CT_streamtube= load3D_axial./(0.5*(oper.U_inf^2)*SectionArea);
+%         a_new=AxialInductionFactor(CT_streamtube);
+%         
+% %         [~, ~, Prandtl]=PrandtlTipRootCorrection(prop, SectionRadius, oper, a_new);
+%         a_new = a_new/Prandtl;
+%         a = 0.75*a+0.25*a_new;%update new value of axial induction via weighted average
+%         
+%         aprime = AzimInductionFactor(f_tangential, prop, SectionRadius, oper, a, air);
+%         aprime = aprime/Prandtl;
         
         if (abs(a-a_new)<epsilon)
             break;
-        end       
+        end
+        a = 0.75*a+0.25*a_new;
     end 
     
-    Results = [SectionRadius/prop.R, a, aprime, f_axial, f_tangential,gamma, alpha,  i];
+    Results = [SectionRadius/prop.R, a_new, aprime,  i];
+end
+function F = FlowExpansionFunction(r_R)
+    %curve fit to original function
+    F = 0.5.*(r_R+0.4.*(r_R.^3)+0.4.*(r_R.^5));
+
+end
+function chi = WakeSkewAngle(yaw, a)
+    %yaw: [rad]
+    chi = yaw*(0.6*a+1);
+end
+function K_c = K(yaw, a)
+    chi = WakeSkewAngle(yaw, a);
+    K_c = 2*tan(chi/2);
 end
