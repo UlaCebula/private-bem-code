@@ -8,7 +8,6 @@ type = 'WT';
 [polar, prop, oper, air, propellertype] = param(spacing, type);
 
 
-
 % figure
 % subplot(1,2,1);
 % plot(polar.alpha,polar.Cl);
@@ -102,7 +101,7 @@ function Results = SolveSection(index, polar, prop, air, oper)
     a = 0.1;%axial induction factor
     aprime = 0.1;%tangential induction factor
     
-    N = 100;%number of iterations
+    N = 1;%number of iterations
     epsilon = 0.00001;
     
     for i=1:N

@@ -7,8 +7,11 @@ spacing = 'constant';
 type = 'WT';
 [polar, prop, oper, air, propellertype] = param(spacing, type);
 
+zeroyawresults = load('zeroyawdata.mat');
+a_zeroyaw = zeroyawresults.SectionResults(:,2);
+aprime_zeroyaw = zeroyawresults.SectionResults(:,3);
 %%%
-yaw = deg2rad(15); 
+yaw = deg2rad(0); 
 dPsi = 1;%[deg]
 AzimuthAngle = deg2rad([0:dPsi:360]');
 %%%
@@ -25,13 +28,17 @@ xlabel('\alpha');
 ylabel('C_{d}');
 %%
 % SectionResults = zeros(length(prop.r_R)-1,8);
-for i=1:1
+for i=1:length(prop.r_R)-1
     prop.sectionchord = chord_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)), prop.R, propellertype);%non-dimensional
     prop.sectionpitch = pitch_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)),prop.collective_blade_twist, propellertype);% [deg]        
-    [SectionResults(i,:), Inflowangles(i,:), alphas(i,:), temp1] = SolveSection(i, polar, prop, air, oper, AzimuthAngle, yaw, dPsi);
+    [SectionResults(i,:), Inflowangles(i,:), alphas(i,:)] = SolveSection(i, polar, prop, air, oper, AzimuthAngle, yaw, dPsi);
 end
-
-
+figure;
+plot(SectionResults(:,1), SectionResults(:,2),'k--');
+hold on
+plot(SectionResults(:,1),a_zeroyaw,'k');
+plot(SectionResults(:,1),SectionResults(:,3),'b--');
+plot(SectionResults(:,1),aprime_zeroyaw,'b');
 %% Functions
 function [ftip, froot, ftotal] = PrandtlTipRootCorrection(prop, SectionRadius, oper, a)
     r_R_Section = SectionRadius/prop.R; %non-dimensional
@@ -56,22 +63,14 @@ function [ftip, froot, ftotal] = PrandtlTipRootCorrection(prop, SectionRadius, o
         ftotal = 0.0001;
     end
 end
-function [temp1, InflowAngles, alphas, cl, cd] = AnnularRingProperties(yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle, polar, index)
-    [temp1, InflowAngles] = inflowangle(yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle);%should be an array of phi for constant radius
+function [InflowAngles, alphas, cl, cd] = AnnularRingProperties(yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle, polar, index)
+    [InflowAngles] = inflowangle(yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle);%should be an array of phi for constant radius
     alphas = rad2deg(InflowAngles) - prop.sectionpitch;
-%     for i=1:length(alphas)
-%         if alphas(i)>max(polar.alpha)
-%             alphas(i) = max(polar.alpha);
-%         end
-%         if alphas(i)<min(polar.alpha)
-%             alphas(i) = min(polar.alpha);
-%         end
-%     end
-%     alphas
+
     cl = interp1(polar.alpha, polar.Cl, alphas,'linear', 'extrap');
     cd = interp1(polar.alpha, polar.Cd, alphas,'linear', 'extrap');
 end
-function [temp1, phi] = inflowangle(yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle)
+function [phi] = inflowangle(yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle)
     %Equation 3.131
     K_c = K(yaw, a);%constant for constant yaw, 0 for 0 deg yaw
     chi = WakeSkewAngle(yaw, a);%constant for constant yaw, 0 for 0 deg yaw
@@ -96,23 +95,21 @@ function [a] = CalculateNewAxialInduction(W, SectionRotorSolidity, Cx, dPsi, Pra
     %solve integral discretely
     NormalisedW = (W.^2)/(oper.U_inf^2); 
     temp = SectionRotorSolidity.*sum(Cx.*NormalisedW.*dPsi);
-%     Prandtl;
-%     yaw;
-%     chi;
-%     (cos(yaw)+(tan(chi/2)*sin(yaw))-a*Prandtl*(sec(chi/2))^2;
     %solve for a
-%     fun = @(a) 8*pi*a*Prandtl*(cos(yaw)+(tan(chi/2)*sin(yaw))-a*Prandtl*(sec(chi/2))^2)-temp;
-    fun = @(a) 	8*pi*a*Prandtl*sqrt(1-a*Prandtl*((2*cos(yaw))-(a*Prandtl)))-temp;
-    a = fzero(fun, 0.5);    
+    fun = @(a) 8*pi*a*Prandtl*(cos(yaw)+(tan(chi/2)*sin(yaw))-a*Prandtl*(sec(chi/2))^2)-temp;
+%     fun = @(a) 	8*pi*a*Prandtl*sqrt(1-a*Prandtl*((2*cos(yaw))-(a*Prandtl)))-temp;
+    a = fzero(fun, 0.);    
 end
 function aprime = CalculateNewAzimInduction(W, SectionRotorSolidity, Cx, Cy, dPsi, AzimuthAngle, chi, yaw, Prandtl, a, oper, SectionRadius, prop)    
-    NormalisedW = (W.^2)/(oper.U_inf^2); 
+    NormalisedW = (W.^2)./(oper.U_inf^2); 
     r_R = SectionRadius/prop.R;
     temp1 = sum(NormalisedW.*(cos(AzimuthAngle).*sin(chi).*Cx)+(cos(chi).*Cy).*dPsi);
     temp = SectionRotorSolidity.*temp1;
     
-    fun = @(aprime) (4*aprime*Prandtl*(cos(yaw)-(a*Prandtl))*oper.TSR*r_R*pi*(1+(cos(chi)).^2))-temp;
-    aprime = fzero(fun, 0.5);  
+%     fun = @(aprime) (4*aprime*Prandtl*(cos(yaw)-(a*Prandtl))*oper.TSR*r_R*pi*(1+(cos(chi)).^2))-temp;
+    fun = @(aprime) 4*aprime*Prandtl*oper.TSR*r_R*pi*(cos(yaw)-(a*Prandtl))*(1+(cos(chi))^2)-temp;
+
+    aprime = fzero(fun, 0);  
 
 end
 function [Results, InflowAngles, alphas, temp1] = SolveSection(index, polar, prop, ~, oper, AzimuthAngle, yaw, dPsi)
@@ -125,12 +122,12 @@ function [Results, InflowAngles, alphas, temp1] = SolveSection(index, polar, pro
     a = 0.1;%axial induction factor
     aprime = 0.1;%tangential induction factor
     
-    N = 100;%number of iterations for convergence
+    N = 1;%number of iterations for convergence
     epsilon = 0.00001;
     
     for i=1:N
         %produce array of local AoA, Inflow angles, cl and cd
-        [temp1, InflowAngles, alphas, cl, cd] = AnnularRingProperties(yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle, polar, index);
+        [InflowAngles, alphas, cl, cd] = AnnularRingProperties(yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle, polar, index);
         
         chi = WakeSkewAngle(yaw, a);
         W = ResultantVelocityBladeElement(SectionRadius, prop, oper, AzimuthAngle, yaw, a, aprime);%should be array of W here
@@ -141,7 +138,7 @@ function [Results, InflowAngles, alphas, temp1] = SolveSection(index, polar, pro
         
         %%calculate new value of a here
         a_new = CalculateNewAxialInduction(W, SectionRotorSolidity, Cx, dPsi, Prandtl, yaw, chi, oper);
-
+        
         %%calculate new value of aprime here
         [~, ~, Prandtl]=PrandtlTipRootCorrection(prop, SectionRadius, oper, a_new);
         aprime= CalculateNewAzimInduction(W, SectionRotorSolidity, Cx, Cy, dPsi, AzimuthAngle, chi, yaw, Prandtl, a_new, oper, SectionRadius, prop);
@@ -169,9 +166,6 @@ function [Results, InflowAngles, alphas, temp1] = SolveSection(index, polar, pro
         end
         a = 0.75*a+0.25*a_new;
         
-        if a>0.95
-            a = 0.95;
-        end
     end 
     
     Results = [SectionRadius/prop.R, a_new, aprime,  i];
