@@ -13,7 +13,7 @@ zeroyawresults = load('zeroyawdata.mat');
 a_zeroyaw = zeroyawresults.SectionResults(:,2);
 aprime_zeroyaw = zeroyawresults.SectionResults(:,3);
 %%%
-yaw = deg2rad(15); 
+yaw = deg2rad(0); 
 dPsi = 1;%[deg]
 AzimuthAngle = deg2rad([0:dPsi:360]');
 %%%
@@ -31,11 +31,11 @@ ylabel('C_{d}');
 %%
 % SectionResults = zeros(length(prop.r_R)-1,8);
 for i=1:length(prop.r_R)-1
-    for j=1:length(AzimuthAngle)%for each angle
+%     for j=1:length(AzimuthAngle)%for each angle
         prop.sectionchord = chord_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)), prop.R, propellertype);%non-dimensional
         prop.sectionpitch = pitch_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)),prop.collective_blade_twist, propellertype);% [deg]        
-        [SectionResults(i,:), a(i,j), aprime(i,j), alpha(i,j), inflowangle(i,j)] = SolveSection(i, polar, prop, air, oper, AzimuthAngle(j), dPsi, yaw);
-    end
+        [SectionResults(i,:), a(i,:), aprime(i,:), alpha(i,:), inflowangle(i,:)] = SolveSection(i, polar, prop, air, oper, AzimuthAngle, dPsi, yaw);
+%     end
 end
 
 % figure;
@@ -53,23 +53,24 @@ function [ftip, froot, ftotal] = PrandtlTipRootCorrection(prop, SectionRadius, I
 %     F2 = (-prop.Nblades/2)*((r_R_Section-prop.blade_root)/r_R_Section)*sqrt(1+(oper.TSR*r_R_Section/(1-a))^2);
     
     %(prop, SectionRadius, InflowAngle)
-    F1 = (-prop.Nblades/2)*((1-r_R_Section)/r_R_Section)*(1/sin(InflowAngle));
-    F2 = (-prop.Nblades/2)*((r_R_Section-prop.blade_root)/prop.blade_root)*(1/sin(InflowAngle));
+    F1 = (-prop.Nblades./2).*((1-r_R_Section)./r_R_Section).*(1./sin(InflowAngle));
+    F2 = (-prop.Nblades./2).*((r_R_Section-prop.blade_root)./prop.blade_root).*(1./sin(InflowAngle));
     
-    ftip = (2/pi)*acos(exp(F1));    
+    ftip = (2/pi).*acos(exp(F1));    
     if (isnan(ftip))
        ftip = 0; 
     end
     
-    froot = (2/pi)*acos(exp(F2));
+    froot = (2/pi).*acos(exp(F2));
     if (isnan(froot))
        froot = 0;
     end
     
-    ftotal = ftip*froot;
-    if (ftotal < 0.0001)
-        ftotal = 0.0001;
-    end
+    ftotal = ftip.*froot;
+%     if (ftotal < 0.0001)
+%         ftotal = 0.0001;
+%     end
+    ftotal(ftotal<0.0001) = 0.0001;
 end
 
 function [Results, a_new, aprime_new, alpha, inflowangle] = SolveSection(index, polar, prop, ~, oper, AzimuthAngle, dPsi, yaw)
@@ -78,6 +79,8 @@ function [Results, a_new, aprime_new, alpha, inflowangle] = SolveSection(index, 
     r_R2=prop.r_R(index+1);
 %     SectionArea = pi*(((r_R2*prop.R)^2)-((r_R1*prop.R)^2)); %[m^2]
     SectionRadius = 0.5*(r_R1+r_R2)*prop.R;%average radius [m]
+    SectionRotorSolidity = (prop.Nblades*prop.sectionchord*prop.R)/(2*pi*SectionRadius);
+
     %initialising
     a = 0.1;%axial induction factor
     aprime = 0.1;%tangential induction factor
@@ -89,7 +92,6 @@ function [Results, a_new, aprime_new, alpha, inflowangle] = SolveSection(index, 
     for i=1:N
         %produce array of local AoA, Inflow angles, cl and cd
         [inflowangle, alpha, cx, cy] = SectionInflowAngleCalc(oper, a, aprime, SectionRadius, polar, prop, yaw, AzimuthAngle);
-        SectionRotorSolidity = (prop.Nblades*prop.sectionchord*prop.R)/(2*pi*SectionRadius);
         [~, ~, Prandtl] = PrandtlTipRootCorrection(prop, SectionRadius, inflowangle);
         CTsection = CTCalc(SectionRotorSolidity, cx, a, inflowangle); 
         a_new = AxialInductionFactor(Prandtl, CTsection, SectionRotorSolidity, cx, inflowangle);
@@ -102,46 +104,46 @@ function [Results, a_new, aprime_new, alpha, inflowangle] = SolveSection(index, 
         if (abs(a-a_new)<epsilon)
             break;
         else
-            a = 0.75*a+0.25*a_new;%,update new value of axial induction via weighted average
+            a = 0.75.*a+0.25.*a_new;%,update new value of axial induction via weighted average
         end
     end 
     Results = [SectionRadius/prop.R, i];
 end
 function [phi, alpha, cx, cy] = SectionInflowAngleCalc(oper, a, aprime, SectionRadius, polar, prop, yaw, AzimuthAngle)
-    U_axial = oper.U_inf*(cos(yaw))*(1-a);
-    U_tan = (oper.U_inf*(-sin(yaw)*cos(AzimuthAngle))+(oper.omega*SectionRadius))*(1+aprime);
+    U_axial = oper.U_inf.*(cos(yaw)).*(1-a);
+    U_tan = (oper.U_inf.*(-sin(yaw).*cos(AzimuthAngle))+(oper.omega.*SectionRadius)).*(1+aprime);
     phi = atan2(U_axial,U_tan);
     alpha = rad2deg(phi) - prop.sectionpitch;    
     cl = interp1(polar.alpha, polar.Cl, alpha,'linear', 'extrap');
     cd = interp1(polar.alpha, polar.Cd, alpha,'linear', 'extrap');
-    cx = cl*cos(phi) + cd*sin(phi);
-    cy = cl*sin(phi) - cd*cos(phi);
+    cx = cl.*cos(phi) + cd.*sin(phi);
+    cy = cl.*sin(phi) - cd.*cos(phi);
 end
 function [Ct] = CTCalc(SectionRotorSolidity, cx, a, phi)
-    top = SectionRotorSolidity*cx*(1-a)^2;
-    btm = (sin(phi))^2;
-    Ct = top/btm;  
+    top = SectionRotorSolidity.*cx.*(1-a).^2;
+    btm = (sin(phi)).^2;
+    Ct = top./btm;  
 end
 function a = AxialInductionFactor(F, CT, sigma, cx, phi)
     if (CT>0.96*F)
-        temp1 = CT*(50-36*F)+12*F*(3*F-4);
-        top = 18*F-20-3*sqrt(temp1);
-        btm = 36*F-50;
-        a = top/btm;
+        temp1 = CT.*(50-36.*F)+12.*F.*(3.*F-4);
+        top = 18.*F-20-3.*sqrt(temp1);
+        btm = 36.*F-50;
+        a = top./btm;
     else
-        btm = sigma*cx;
-        top = 4*F*(sin(phi))^2;        
-        a = (1+(top/btm))^-1;
+        btm = sigma.*cx;
+        top = 4.*F.*(sin(phi)).^2;        
+        a = (1+(top./btm)).^-1;
     end
 end
 function aprime = AzimInductionFactor(F, sigma, cy, phi)
-    top = 4*F*sin(phi)*cos(phi);
-    btm = sigma*cy;
-    aprime = (-1+(top/btm))^-1;
+    top = 4.*F.*sin(phi).*cos(phi);
+    btm = sigma.*cy;
+    aprime = (-1+(top./btm)).^-1;
 end
 function wakeskewangle = WakeSkewAngleCalc(yaw, a)
     %yaw: [rad]
-    wakeskewangle = yaw*(0.6*a+1);
+    wakeskewangle = yaw.*(0.6.*a+1);
 end
 function a_skew = SkewedWakeCorrection(a,SectionRadius,prop,chi,AzimuthAngle)
     r_R = SectionRadius./prop.R;
