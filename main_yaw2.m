@@ -13,7 +13,7 @@ zeroyawresults = load('zeroyawdata.mat');
 a_zeroyaw = zeroyawresults.SectionResults(:,2);
 aprime_zeroyaw = zeroyawresults.SectionResults(:,3);
 %%%
-yaw = deg2rad(0); 
+yaw = deg2rad(15); 
 dPsi = 1;%[deg]
 AzimuthAngle = deg2rad([0:dPsi:360]');
 %%%
@@ -37,7 +37,6 @@ for i=1:length(prop.r_R)-1
         [SectionResults(i,:), a(i,:), aprime(i,:), alpha(i,:), inflowangle(i,:)] = SolveSection(i, polar, prop, air, oper, AzimuthAngle, dPsi, yaw);
 %     end
 end
-
 % figure;
 % plot(SectionResults(:,1), a,'k--');
 % hold on
@@ -57,15 +56,15 @@ function [ftip, froot, ftotal] = PrandtlTipRootCorrection(prop, SectionRadius, I
     F2 = (-prop.Nblades./2).*((r_R_Section-prop.blade_root)./prop.blade_root).*(1./sin(InflowAngle));
     
     ftip = (2/pi).*acos(exp(F1));    
-    if (isnan(ftip))
-       ftip = 0; 
-    end
-    
+%     if (isnan(ftip))
+%        ftip = 0; 
+%     end
+    ftip(isnan(ftip)) = 0;
     froot = (2/pi).*acos(exp(F2));
-    if (isnan(froot))
-       froot = 0;
-    end
-    
+%     if (isnan(froot))
+%        froot = 0;
+%     end
+    froot(isnan(froot)) = 0;
     ftotal = ftip.*froot;
 %     if (ftotal < 0.0001)
 %         ftotal = 0.0001;
@@ -73,7 +72,7 @@ function [ftip, froot, ftotal] = PrandtlTipRootCorrection(prop, SectionRadius, I
     ftotal(ftotal<0.0001) = 0.0001;
 end
 
-function [Results, a_new, aprime_new, alpha, inflowangle] = SolveSection(index, polar, prop, ~, oper, AzimuthAngle, dPsi, yaw)
+function [Results, a_new, aprime_new, alpha, inflowangle, i] = SolveSection(index, polar, prop, ~, oper, AzimuthAngle, dPsi, yaw)
     dPsi = deg2rad(dPsi);
     r_R1=prop.r_R(index); %non-dimensional
     r_R2=prop.r_R(index+1);
@@ -85,7 +84,7 @@ function [Results, a_new, aprime_new, alpha, inflowangle] = SolveSection(index, 
     a = 0.1;%axial induction factor
     aprime = 0.1;%tangential induction factor
     
-    N = 100;%number of iterations for convergence
+    N = 200;%number of iterations for convergence
     epsilon = 0.00001;
     
     %calculate a and aprime for each section at a constant radius for each azimuth angle 
@@ -101,13 +100,13 @@ function [Results, a_new, aprime_new, alpha, inflowangle] = SolveSection(index, 
         wakeskewangle = WakeSkewAngleCalc(yaw, a_new);
         a_new = SkewedWakeCorrection(a_new,SectionRadius,prop,wakeskewangle,AzimuthAngle);
 
-        if (abs(a-a_new)<epsilon)
+        if (max(abs(a-a_new))<epsilon)
             break;
         else
             a = 0.75.*a+0.25.*a_new;%,update new value of axial induction via weighted average
         end
     end 
-    Results = [SectionRadius/prop.R, i];
+    Results = [SectionRadius/prop.R, i];% i represents max iterations done per fixed radius
 end
 function [phi, alpha, cx, cy] = SectionInflowAngleCalc(oper, a, aprime, SectionRadius, polar, prop, yaw, AzimuthAngle)
     U_axial = oper.U_inf.*(cos(yaw)).*(1-a);

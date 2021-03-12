@@ -101,7 +101,7 @@ function Results = SolveSection(index, polar, prop, air, oper)
     a = 0.1;%axial induction factor
     aprime = 0.1;%tangential induction factor
     
-    N = 1;%number of iterations
+    N = 100;%number of iterations
     epsilon = 0.00001;
     
     for i=1:N
