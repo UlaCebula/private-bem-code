@@ -8,10 +8,11 @@ type = 'WT';
 [polar, prop, oper, air, propellertype] = param(spacing, type);
 
 zeroyawresults = load('zeroyawdata.mat');
+radialdist_zeroyaw = zeroyawresults.SectionResults(:,1);
 a_zeroyaw = zeroyawresults.SectionResults(:,2);
 aprime_zeroyaw = zeroyawresults.SectionResults(:,3);
 %%%
-yaw = deg2rad(15); 
+yaw = deg2rad([0]); 
 dPsi = 1;%[deg]
 AzimuthAngle = deg2rad([0:dPsi:360]');
 
@@ -27,17 +28,21 @@ plot(polar.alpha,polar.Cd);
 xlabel('\alpha');
 ylabel('C_{d}');
 %%
-% SectionResults = zeros(length(prop.r_R)-1,8);
+% SectionResults = zeros(length(prop.r_R)-1,4);
+for j=1:length(yaw)
 for i=1:length(prop.r_R)-1
     prop.sectionchord = chord_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)), prop.R, propellertype);%non-dimensional
     prop.sectionpitch = pitch_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)),prop.collective_blade_twist, propellertype);% [deg]        
-    [Cx, Cy, SectionResults(i,:)] = SolveSection(i, polar, prop, air, oper, AzimuthAngle, yaw, dPsi);
+    [SectionResults(i,:,j), InflowAngles(i,:,j), Cx(i,:,j),Cy(i,:,j)] = SolveSection(i, polar, prop, air, oper, AzimuthAngle, yaw(j), dPsi);
+end
 end
 figure;
-plot(new(:,1),new(:,2),'k');
-% hold on
-% plot(new(:,1), a_zeroyaw,'b');
-
+plot(SectionResults(:,1,1),SectionResults(:,2,1),'k');
+hold on
+plot(radialdist_zeroyaw, a_zeroyaw,'k--');
+% plot(SectionResults(:,1,2),SectionResults(:,2,2),'b');
+% plot(SectionResults(:,1,3),SectionResults(:,2,3),'r');
+legend('coupled(yaw=0)','ref data for yaw=0','coupled(yaw=15deg','coupled(yaw=30deg')
 %% Functions
 function [ftip, froot, ftotal] = PrandtlTipRootCorrection(prop, SectionRadius, oper, a)
     r_R_Section = SectionRadius/prop.R; %non-dimensional
@@ -174,7 +179,7 @@ function a_new = solveCoeffFunc(a_previous, F, yaw, CtRHS, CqRHS, oper, SectionR
     end
 
 end
-function [Results] = SolveSection(index, polar, prop, ~, oper, AzimuthAngle, yaw, dPsi)
+function [Results, InflowAngles, Cx, Cy] = SolveSection(index, polar, prop, ~, oper, AzimuthAngle, yaw, dPsi)
     dPsi = deg2rad(dPsi);
     r_R1=prop.r_R(index); %non-dimensional
     r_R2=prop.r_R(index+1);

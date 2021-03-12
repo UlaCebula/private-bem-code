@@ -10,10 +10,11 @@ type = 'WT';
 [polar, prop, oper, air, propellertype] = param(spacing, type);
 
 zeroyawresults = load('zeroyawdata.mat');
+radialdist_zeroyaw = zeroyawresults.SectionResults(:,1);
 a_zeroyaw = zeroyawresults.SectionResults(:,2);
 aprime_zeroyaw = zeroyawresults.SectionResults(:,3);
 %%%
-yaw = deg2rad(15); 
+yaw = deg2rad([0;15;30]); 
 dPsi = 1;%[deg]
 AzimuthAngle = deg2rad([0:dPsi:360]');
 %%%
@@ -30,19 +31,27 @@ xlabel('\alpha');
 ylabel('C_{d}');
 %%
 % SectionResults = zeros(length(prop.r_R)-1,8);
-for i=1:length(prop.r_R)-1
-%     for j=1:length(AzimuthAngle)%for each angle
-        prop.sectionchord = chord_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)), prop.R, propellertype);%non-dimensional
-        prop.sectionpitch = pitch_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)),prop.collective_blade_twist, propellertype);% [deg]        
-        [SectionResults(i,:), a(i,:), aprime(i,:), alpha(i,:), inflowangle(i,:)] = SolveSection(i, polar, prop, air, oper, AzimuthAngle, dPsi, yaw);
-%     end
+for j=1:length(yaw)
+    for i=1:length(prop.r_R)-1
+    %     for j=1:length(AzimuthAngle)%for each angle
+            prop.sectionchord = chord_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)), prop.R, propellertype);%non-dimensional
+            prop.sectionpitch = pitch_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)),prop.collective_blade_twist, propellertype);% [deg]        
+            [SectionResults(i,:,j), a(i,:,j), aprime(i,:,j), alpha(i,:,j), inflowangle(i,:,j)] = SolveSection(i, polar, prop, air, oper, AzimuthAngle, dPsi, yaw(j));
+    %     end
+    end
 end
-% figure;
-% plot(SectionResults(:,1), a,'k--');
-% hold on
-% plot(SectionResults(:,1),a_zeroyaw,'k');
-% plot(SectionResults(:,1),aprime,'b--');
-% plot(SectionResults(:,1),aprime_zeroyaw,'b');
+% a = mat2cell(a, size(a,1), size(a,2), ones(1, size(a,3)));
+a_0 = mean(a(:,:,1),2); 
+a_15 = mean(a(:,:,2),2);
+a_30 = mean(a(:,:,3),2);
+figure;
+plot(SectionResults(:,1,1),a_0,'k');
+hold on
+plot(radialdist_zeroyaw, a_zeroyaw,'k--');
+plot(SectionResults(:,1,1),a_15,'b-.');
+plot(SectionResults(:,1,1),a_30,'r');
+legend('normal(yaw=0)','ref data for yaw=0','normal(yaw=15deg)','normal(yaw=30deg)')
+
 %% Functions
 function [ftip, froot, ftotal] = PrandtlTipRootCorrection(prop, SectionRadius, InflowAngle)
     r_R_Section = SectionRadius/prop.R; %non-dimensional
@@ -96,21 +105,25 @@ function [Results, a_new, aprime_new, alpha, inflowangle, i] = SolveSection(inde
         a_new = AxialInductionFactor(Prandtl, CTsection, SectionRotorSolidity, cx, inflowangle);
         aprime_new = AzimInductionFactor(Prandtl, SectionRotorSolidity, cy, inflowangle);       
 
-        %Effect of skew
-        wakeskewangle = WakeSkewAngleCalc(yaw, a_new);
-        a_new = SkewedWakeCorrection(a_new,SectionRadius,prop,wakeskewangle,AzimuthAngle);
+%         %Effect of skew
+%         wakeskewangle = WakeSkewAngleCalc(yaw, a_new);
+%         a_new = SkewedWakeCorrection(a_new,SectionRadius,prop,wakeskewangle,AzimuthAngle);
 
         if (max(abs(a-a_new))<epsilon)
             break;
         else
             a = 0.75.*a+0.25.*a_new;%,update new value of axial induction via weighted average
         end
-    end 
+    end
+    
+    
+    wakeskewangle = WakeSkewAngleCalc(yaw, a_new);
+    a_new = SkewedWakeCorrection(a_new,SectionRadius,prop,wakeskewangle,AzimuthAngle);
     Results = [SectionRadius/prop.R, i];% i represents max iterations done per fixed radius
 end
 function [phi, alpha, cx, cy] = SectionInflowAngleCalc(oper, a, aprime, SectionRadius, polar, prop, yaw, AzimuthAngle)
-    U_axial = oper.U_inf.*(cos(yaw)).*(1-a);
-    U_tan = (oper.U_inf.*(-sin(yaw).*cos(AzimuthAngle))+(oper.omega.*SectionRadius)).*(1+aprime);
+    U_axial = oper.U_inf.*(cos(yaw)).*(1-a);%
+    U_tan = (oper.U_inf.*(-sin(yaw).*cos(AzimuthAngle))+(oper.omega.*SectionRadius)).*(1+aprime);%
     phi = atan2(U_axial,U_tan);
     alpha = rad2deg(phi) - prop.sectionpitch;    
     cl = interp1(polar.alpha, polar.Cl, alpha,'linear', 'extrap');
@@ -146,6 +159,6 @@ function wakeskewangle = WakeSkewAngleCalc(yaw, a)
 end
 function a_skew = SkewedWakeCorrection(a,SectionRadius,prop,chi,AzimuthAngle)
     r_R = SectionRadius./prop.R;
-    temp = (15*pi/64).*r_R.*tan(chi/2).*cos(AzimuthAngle);
+    temp = (15*pi/64).*r_R.*tan(chi/2).*sin(AzimuthAngle);
     a_skew = a.*(1+temp);
 end
