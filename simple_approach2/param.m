@@ -78,11 +78,12 @@ prop.SectionRadius = 0.5.*(r_R1+r_R2).*prop.R;%average radius [m]
 for i=1:length(prop.r_R)-1
     prop.sectionchord(i,1) = chord_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)), prop.R, flagtype);%non-dimensional
     prop.sectionpitch(i,1) = pitch_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)),prop.collective_blade_twist, flagtype);% [deg] 
-end    
-    
+end
+
+prop.SectionRotorSolidity = (prop.Nblades.*prop.sectionchord.*prop.R)./(2.*pi.*prop.SectionRadius);
 
 
-
-[air.Temp, air.speed_of_sound, air.pressure, air.density] = atmosisa(2000);
+altitude = 2000;% [m]
+[air.Temp, air.speed_of_sound, air.pressure, air.density] = atmosisa(altitude);
 end
 

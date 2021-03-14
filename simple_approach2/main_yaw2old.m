@@ -9,11 +9,12 @@ spacing = 'constant';
 type = 'WT';
 [polar, prop, oper, air, propellertype] = param(spacing, type);
 
+%% carlos' data
 zeroyawresults = load('zeroyawdata.mat');
 radialdist_zeroyaw = zeroyawresults.SectionResults(:,1);
 a_zeroyaw = zeroyawresults.SectionResults(:,2);
 aprime_zeroyaw = zeroyawresults.SectionResults(:,3);
-%%%
+%%
 yaw = deg2rad([0;15;30]); 
 dPsi = 1;%[deg]
 AzimuthAngle = deg2rad([0:dPsi:360]');
