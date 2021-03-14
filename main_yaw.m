@@ -70,14 +70,18 @@ hold on
 % legend('a''(yaw=0)','a'' (yaw=15deg)');
 
 %% calculate axial induction factor that varies with azimuth based on average tangential induction
-%length(SectionRadialDist)
-for i=1:length(SectionRadialDist)
-    [a_Azim(i,:), iterations(i,1)] = SolveElement(prop, oper, polar, SectionRadialDist(i), ...
-        SectionRotorSolidity(i), AveTangInductions(i), i, AzimuthAngle, yaw);
-    Finish = ['Radius index: ' num2str(i)];
+yawangles = yaw(yaw~=0);
+
+for j=1:length(yawangles)
+    for i=1:length(SectionRadialDist)
+        [a_Azim(i,:), iterations(i,1)] = SolveElement(prop, oper, polar, SectionRadialDist(i), ...
+            SectionRotorSolidity(i), AveTangInductions(i), i, AzimuthAngle, yawangles(j));
+        Finish = ['Radius index: ' num2str(i)];
+        disp(Finish);
+    end
+    Finish = ['Yaw Angle ' num2str(yawangle(j)) 'completed'];
     disp(Finish);
 end
-
 
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%Post Processing%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -113,14 +117,13 @@ function [a_final, iterations] = SolveElement...
     % yaw: single value
     
     SectionRadius = r_R.*prop.R; %[m]
-    
+%     IndexAzimuthAngle = [1:1:length(AzimuthAngle)]';
     N = 100;%number of iterations for convergence
     epsilon = 0.0001;%tolerance
     a_final = zeros(1, length(AzimuthAngle));
     
-%     for j=1:length(AzimuthAngle)
-        %initialising for each Azimiuth Angle (solving for a only)
-        a = 0.1.*ones(length(AzimuthAngle),1);%axial induction factor
+        %initialising for all Azimiuth Angle (solving for a only)
+        a = 0.3.*ones(length(AzimuthAngle),1);%axial induction factor
         for i=1:N
             [InflowAngle, alphas, cl, cd] = AnnularRingProperties(yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle, polar, index);        
 %             chi = WakeSkewAngle(yaw, a);
@@ -135,18 +138,19 @@ function [a_final, iterations] = SolveElement...
             % solve for new a using fsolve
             % determine momentum eqn to be used based on value of a
             a_new = solveCoeffFunc(a, Prandtl, yaw, CtElmAzim);
+            
+            error = abs(a-a_new);
 
-            if (max(abs(a-a_new))<epsilon)
+            if (max(error)<epsilon)
                 break;
             else
                 a = 0.75*a+0.25*a_new;            
             end
+            Finish = ['Iteration: ',num2str(i) ]; 
+            disp(Finish);
         end
         a_final(1,:) = a_new;
         iterations = i;
-%         Finish = ['Azimnth index: ' num2str(j)];
-%         disp(Finish);
-%     end
 end 
 function [ftip, froot, ftotal] = PrandtlTipRootCorrection(prop, SectionRadius, oper, a)
     r_R_Section = SectionRadius/prop.R; %non-dimensional
@@ -241,7 +245,7 @@ function  [f0, fprime_0, f1] = fcoeff(F, yaw)
     f1 = double(2*cos(yaw));
 end
 function a_new = solveCoeffFunc(a_previous, F, yaw, CtRHS)
-    options = optimoptions('fsolve','Display','iter');
+    options = optimoptions('fsolve','Display','none');
     options.Algorithm = 'trust-region-reflective';
     options.JacobPattern = speye(length(CtRHS));
     options.PrecondBandWidth = 0;
