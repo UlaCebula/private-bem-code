@@ -14,7 +14,7 @@ aprime_zeroyaw = zeroyawresults.SectionResults(:,3);
 %%
 yaw = deg2rad([0]); 
 dPsi = 1;%[deg]
-AzimuthAngle = deg2rad([0:dPsi:360]');
+AzimuthAngle = deg2rad([0:dPsi:359]');
 
 %% polar plots for airfoil
 % figure
