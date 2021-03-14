@@ -26,7 +26,8 @@ if (flagtype)
     prop.blade_root = 0.25; %non-dimensional blade starting location 
 else
     prop.blade_root = 0.2;
-    
+end    
+
 switch spacing
     case 'constant'
         %constant spacing
@@ -67,6 +68,20 @@ else
     oper.TSR = 8;%omega*R/Uinf  
     oper.omega = (oper.TSR*oper.U_inf)/prop.R;
 end
+
+%% General properties
+r_R1=prop.r_R(1:end-1); %non-dimensional
+r_R2=prop.r_R(2:end);
+prop.SectionArea = pi.*(((r_R2.*prop.R).^2)-((r_R1.*prop.R).^2)); %[m^2]
+prop.SectionRadius = 0.5.*(r_R1+r_R2).*prop.R;%average radius [m]
+    
+for i=1:length(prop.r_R)-1
+    prop.sectionchord(i,1) = chord_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)), prop.R, flagtype);%non-dimensional
+    prop.sectionpitch(i,1) = pitch_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)),prop.collective_blade_twist, flagtype);% [deg] 
+end    
+    
+
+
 
 [air.Temp, air.speed_of_sound, air.pressure, air.density] = atmosisa(2000);
 end

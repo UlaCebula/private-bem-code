@@ -143,11 +143,10 @@ classdef GetAveFactors
             end
 
         end
-        function [Results, InflowAngles, Cx, Cy] = SolveSection(index, polar, prop, ~, oper, AzimuthAngle, yaw, dPsi)
-            dPsi = deg2rad(dPsi);
+        function [Results, InflowAngles, Cx, Cy] = SolveSection(index, polar, prop, ~, oper, AzimuthAngle, yaw, ~)
+%             dPsi = deg2rad(dPsi);
             r_R1=prop.r_R(index); %non-dimensional
             r_R2=prop.r_R(index+1);
-        %     SectionArea = pi*(((r_R2*prop.R)^2)-((r_R1*prop.R)^2)); %[m^2]
             SectionRadius = 0.5*(r_R1+r_R2)*prop.R;%average radius [m]
             SectionRotorSolidity = (prop.Nblades*prop.sectionchord(index)*prop.R)/(2*pi*SectionRadius);
 

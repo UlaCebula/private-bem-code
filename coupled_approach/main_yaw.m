@@ -12,7 +12,7 @@ radialdist_zeroyaw = zeroyawresults.SectionResults(:,1);
 a_zeroyaw = zeroyawresults.SectionResults(:,2);
 aprime_zeroyaw = zeroyawresults.SectionResults(:,3);
 %%
-yaw = deg2rad([15]); 
+yaw = deg2rad([0]); 
 dPsi = 1;%[deg]
 AzimuthAngle = deg2rad([0:dPsi:360]');
 
@@ -35,10 +35,10 @@ AveTangInductions = zeros(length(prop.r_R)-1, length(yaw));
 ResultsForDifferentYaw = cell(length(yaw), 1);
 
 
-for i=1:length(prop.r_R)-1
-    prop.sectionchord(i,1) = chord_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)), prop.R, propellertype);%non-dimensional
-    prop.sectionpitch(i,1) = pitch_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)),prop.collective_blade_twist, propellertype);% [deg] 
-end
+% for i=1:length(prop.r_R)-1
+%     prop.sectionchord(i,1) = chord_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)), prop.R, propellertype);%non-dimensional
+%     prop.sectionpitch(i,1) = pitch_distribution(0.5*(prop.r_R(i)+prop.r_R(i+1)),prop.collective_blade_twist, propellertype);% [deg] 
+% end
 %Solve for each element/annulus
 for j=1:length(yaw)
     for i=1:length(prop.r_R)-1
@@ -71,18 +71,18 @@ hold on
 
 %% calculate axial induction factor that varies with azimuth based on average tangential induction
 yawangles = yaw(yaw~=0);
-
-for j=1:length(yawangles)
-    for i=1:length(SectionRadialDist)
-        [a_Azim(i,:), iterations(i,1)] = SolveElement(prop, oper, polar, SectionRadialDist(i), ...
-            SectionRotorSolidity(i), AveTangInductions(i), i, AzimuthAngle, yawangles(j));
-        Finish = ['Radius index: ' num2str(i)];
+if yawangles ~= 0
+    for j=1:length(yawangles)
+        for i=1:length(SectionRadialDist)
+            [a_Azim(i,:), iterations(i,1)] = SolveElement(prop, oper, polar, SectionRadialDist(i), ...
+                SectionRotorSolidity(i), AveTangInductions(i), i, AzimuthAngle, yawangles(j));
+            Finish = ['Radius index: ' num2str(i)];
+            disp(Finish);
+        end
+        Finish = ['Yaw Angle ' num2str(yawangle(j)) 'completed'];
         disp(Finish);
     end
-    Finish = ['Yaw Angle ' num2str(yawangle(j)) 'completed'];
-    disp(Finish);
 end
-
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%Post Processing%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
