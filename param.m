@@ -63,7 +63,7 @@ else
     prop.Nblades = 3;%number of blades
     
     %Operating conditions
-    oper.U_inf = 1;% [m/s]
+    oper.U_inf = 10;% [m/s]
     oper.TSR = 8;%omega*R/Uinf  
     oper.omega = (oper.TSR*oper.U_inf)/prop.R;
 end

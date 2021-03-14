@@ -30,7 +30,7 @@ classdef GetAveFactors
         end
         function [InflowAngles, alphas, cl, cd] = AnnularRingProperties(yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle, polar, index)
             [InflowAngles] = GetAveFactors.inflowangle(yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle);%should be an array of phi for constant radius
-            alphas = rad2deg(InflowAngles) - prop.sectionpitch;
+            alphas = rad2deg(InflowAngles) - prop.sectionpitch(index);
             cl = interp1(polar.alpha, polar.Cl, alphas,'linear', 'extrap');
             cd = interp1(polar.alpha, polar.Cd, alphas,'linear', 'extrap');
         end
@@ -149,7 +149,7 @@ classdef GetAveFactors
             r_R2=prop.r_R(index+1);
         %     SectionArea = pi*(((r_R2*prop.R)^2)-((r_R1*prop.R)^2)); %[m^2]
             SectionRadius = 0.5*(r_R1+r_R2)*prop.R;%average radius [m]
-            SectionRotorSolidity = (prop.Nblades*prop.sectionchord*prop.R)/(2*pi*SectionRadius);
+            SectionRotorSolidity = (prop.Nblades*prop.sectionchord(index)*prop.R)/(2*pi*SectionRadius);
 
             %initialising
             a = 0.1;%axial induction factor
@@ -160,7 +160,8 @@ classdef GetAveFactors
 
             for i=1:N
                 %produce array of local AoA, Inflow angles, cl and cd
-                [InflowAngles, alphas, cl, cd] = GetAveFactors.AnnularRingProperties(yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle, polar, index);        
+                [InflowAngles, alphas, cl, cd] = GetAveFactors.AnnularRingProperties...
+                    (yaw, a, aprime, prop, oper, SectionRadius, AzimuthAngle, polar, index);        
                 chi = GetAveFactors.WakeSkewAngle(yaw, a);
 
                 W2 = GetAveFactors.ResultantVelocityBladeElement(SectionRadius, oper, AzimuthAngle, yaw, a, aprime);%should be array of W here
@@ -189,7 +190,7 @@ classdef GetAveFactors
 
             end 
 
-            Results = [SectionRadius/prop.R, a_new, aprime_new, i];
+            Results = [SectionRadius/prop.R, a_new, aprime_new, i, SectionRotorSolidity];
         end
         function F = FlowExpansionFunction(r_R)
             %curve fit to original function
