@@ -34,15 +34,21 @@ ylabel('C_{d}');
 %%
 % SectionResults = zeros(length(prop.r_R)-1,8);
 for j=1:length(yaw)
-    for i=1:length(prop.r_R)-1
-            [SectionResults(i,:,j), a(i,:,j), aprime(i,:,j), alpha(i,:,j), inflowangle(i,:,j)] = ...
-                SolveSection(i, polar, prop,  oper, AzimuthAngle, yaw(j));
+    for i=1:length(prop.SectionRadius)
+            % TODO: extract all parameters required to calculate
+                % - Spanwise distribution of angle of attack and inflow angle
+                % - Spanwise distribution of axial and azimuthal inductions
+                % - Spanwise distribution of thrust and azimuthal loading
+                % - Total thrust and torque
+                % - For the cases of yawed HAWT, also plot the azimuthal variation (suggestion: polar contour plot)
+            [a(i,:), aprime(i,:),] = SolveSection(i, polar, prop,  oper, AzimuthAngle, yaw(j));
+            %a and aprime should be a matrix of size(number of sections, number of AzimuthAngles)
     end
 end
-
+% CALCULATION OF VARIOUS COEFFICIENTS AND REQUIRED VALUES GO BELOW HERE
 %% Functions
-function [ftip, froot, ftotal] = PrandtlTipRootCorrection(prop, SectionRadius, InflowAngle)
-    r_R_Section = SectionRadius/prop.R; %non-dimensional
+function [ftip, froot, ftotal] = PrandtlTipRootCorrection(prop, InflowAngle)
+    r_R_Section = prop.SectionRadius./prop.R; %non-dimensional
     
     %(prop, SectionRadius, oper, a)
 %     F1 = (-prop.Nblades/2)*((1-r_R_Section)/r_R_Section)*sqrt(1+(oper.TSR*r_R_Section/(1-a))^2);
@@ -61,28 +67,30 @@ function [ftip, froot, ftotal] = PrandtlTipRootCorrection(prop, SectionRadius, I
     ftotal = ftip.*froot;
     ftotal(ftotal<0.0001) = 0.0001;
 end
-
-function [Results, a_new, aprime_new, alpha, inflowangle, i] = SolveSection(index, polar, prop, oper, AzimuthAngle, yaw)
-    %initialising
+function [a_new, aprime_new] = SolveSection(index, polar, prop, oper, AzimuthAngle, yaw)
+    %index: to keep track of radial position of elements
     
+    %NOTE: prop.SectionRadius is dimensional [m]
+    
+    %initialising
     %induction factors should be vector of length(AzimuthAngle)
-    a = 0.1.*ones(length(AzimuthAngle),1);%axial induction factor
+    a = 0.3.*ones(length(AzimuthAngle),1);%axial induction factor
     aprime = 0.1.*ones(length(AzimuthAngle),1);%tangential induction factor
     
-    N = 200;%number of iterations for convergence
-    epsilon = 0.00001;
+    N = 100;%number of iterations for convergence
+    epsilon = 0.0001;%decrease tolerance to speed up convergence if need be
     
     % calculate Ux and Uy, taking yaw and azimuth angle into account
     % TODO: check equation for Ux and Uy
     % Uy will be vector of length(AzimuthAngle)
     Ux = oper.U_inf.*(cos(yaw));
-    Uy = oper.U_inf.*(-sin(yaw).*cos(AzimuthAngle))+(oper.omega.*SectionRadius);
+    Uy = oper.U_inf.*(-sin(yaw).*cos(AzimuthAngle))+(oper.omega.*prop.SectionRadius);
     
     %calculate a and aprime for each section at a constant radius for each azimuth angle 
     for i=1:N
         %produce array of local AoA, Inflow angles, cl and cd
         [inflowangle, alpha, cx, cy] = SectionInflowAngleCalc(oper, a, aprime, SectionRadius, polar, prop, yaw, AzimuthAngle);
-        [~, ~, Prandtl] = PrandtlTipRootCorrection(prop, SectionRadius, inflowangle);
+        [~, ~, Prandtl] = PrandtlTipRootCorrection(prop, inflowangle);
 
         %TODO: calculate correct value of a_new here
         a_new = AxialInductionFactor(Prandtl, CTsection, SectionRotorSolidity, cx, inflowangle);
@@ -91,7 +99,7 @@ function [Results, a_new, aprime_new, alpha, inflowangle, i] = SolveSection(inde
         % are correct
         a_new = SkewedWakeCorrection(a_new,prop,AzimuthAngle, yaw);
         %TODO: calculate correct value of aprime_new here
-        aprime_new = AzimInductionFactor(Prandtl, SectionRotorSolidity, cy, inflowangle);       
+        aprime_new = AzimInductionFactor(Prandtl, prop, cy, inflowangle);       
         
         % This break condition should work...
         if (max(abs(a-a_new))<epsilon)
@@ -121,7 +129,7 @@ end
 function a = AxialInductionFactor(F, CT, sigma, cx, phi)
     % TODO: return correct value of a
 end
-function aprime = AzimInductionFactor(F, sigma, cy, phi)
+function aprime = AzimInductionFactor(F, prop, cy, phi)
     % TODO: return correct value of a
 end
 function wakeskewangle = WakeSkewAngleCalc(yaw, a)
@@ -132,7 +140,7 @@ end
 function a_skew = SkewedWakeCorrection(a,prop,AzimuthAngle,yaw)
     % TODO: check if this is correct
     chi = WakeSkewAngleCalc(yaw, a);
-    r_R = SectionRadius./prop.R;
+    r_R = prop.SectionRadius./prop.R;
     temp = (15*pi/64).*r_R.*tan(chi/2).*sin(AzimuthAngle);
     a_skew = a.*(1+temp);%should be vector
 end
