@@ -4,7 +4,7 @@
 % CTmom = CTfunction(a,0); % CT without correction
 % CTglauert = CTfunction(a, 1); % CT with Glauert's correction
 % a2 = ainduction(CTglauert);
-% 
+%
 % figure()
 % hold on
 % plot(a, CTmom, 'k-')
@@ -20,7 +20,7 @@
 % r_R = [0.1:0.01:1];
 % a = zeros(size(r_R))+0.3;
 % [Prandtl, Prandtltip, Prandtlroot] = PrandtlTipRootCorrection(r_R, 0.1, 1, 7, 3, a)
-% 
+%
 % figure()
 % hold on
 % plot(r_R, Prandtl, 'r-')
@@ -44,29 +44,29 @@ opts.ExtraColumnsRule = "ignore";
 opts.EmptyLineRule = "read";
 opts.ConsecutiveDelimitersRule = "join";
 opts.LeadingDelimitersRule = "ignore";
-DU95W180 = readtable("./DU95W180.txt", opts);
+DU95W180 = readtable("C:\Users\ula\Desktop\Delft\Q3\Rotor-Wake\private-bem-code-main\DU95W180.txt", opts);
 clear opts
 polar_alpha = DU95W180.Alpha;
 polar_cl = DU95W180.Cl;
 polar_cd = DU95W180.Cd;
 
 %plot polars of the airfoil C-alfa and Cl-Cd
-figure()
-subplot(1,2,1);
-plot(polar_alpha,polar_cl);
-xlabel('\alpha');
-ylabel('C_{l}');
-xlim([-30 30]);
-grid on
-grid minor
-
-subplot(1,2,2);
-plot(polar_alpha,polar_cd);
-xlabel('\alpha');
-ylabel('C_{d}');
-% xlim([0 0.1]);
-grid on
-grid minor
+% figure()
+% subplot(1,2,1);
+% plot(polar_alpha,polar_cl);
+% xlabel('\alpha');
+% ylabel('C_{l}');
+% xlim([-30 30]);
+% grid on
+% grid minor
+% 
+% subplot(1,2,2);
+% plot(polar_alpha,polar_cd);
+% xlabel('\alpha');
+% ylabel('C_{d}');
+% % xlim([0 0.1]);
+% grid on
+% grid minor
 
 %%
 % define the blade geometry
@@ -84,7 +84,7 @@ TSR = 8; % tip speed ratio
 Radius = 50;
 Omega = Uinf*TSR/Radius;
 NBlades = 3;
-yaw=deg2rad(30);
+yaw=deg2rad(0);
 
 TipLocation_R =  1;
 RootLocation_R =  0.2;
@@ -111,8 +111,8 @@ fprintf("CP is %d\n", CP)
 figure(2)
 title('Axial and tangential induction')
 hold on
-plot(results(:,3), results(:,1), 'm-')
-plot(results(:,3), results(:,2), 'm--')
+plot(results(:,3), results(:,1), 'g-')
+plot(results(:,3), results(:,2), 'g--')
 grid on
 grid minor
 xlabel('r/R')
@@ -148,17 +148,25 @@ if glauert
 end
 end
 
-function a = ainduction(CT)
+function a = ainduction(CT, a_old, yaw)
 % This function calculates the induction factor 'a' as a function of thrust coefficient CT
 % including Glauert's correction
 a = zeros(1,length(CT));
 CT1=1.816;
 CT2=2*sqrt(CT1)-CT1;
 a(CT>=CT2) = 1 + (CT(CT>=CT2)-CT1)/(4*(sqrt(CT1)-1));
-a(CT<CT2) = 0.5-0.5*sqrt(1-CT(CT<CT2));
+% a(CT<CT2) = 0.5-0.5*sqrt(1-CT(CT<CT2));
+% a(CT<CT2) = CT(CT<CT2)./(4*sqrt(1-a_old(CT<CT2).*(2*cos(yaw) - a_old(CT<CT2))));
 
-%     a_func = @(a) 4*a*sqrt(1-a*(2*cos(gamma - a)));
-%     a = fsolve(a_func, a_old);
+for i=1:length(a)
+    if a(i)<CT2
+        a_func = @(x) 4*x*sqrt(1-x*(2*cos(yaw) - x))-CT(i);
+        a(i) = fzero(a_func, a_old(i));
+    end
+end
+% a_func = @(x) 4*x.*sqrt(1-x.*(2*cos(yaw) - x))-CT;
+% a(CT<CT2) = arrayfun(@(x0) fsolve(@a_func,x0), a(CT<CT2));
+
 end
 
 function [F_total, Ftip, Froot]=PrandtlTipRootCorrection(r_R, rootradius_R, tipradius_R, TSR, NBlades, axial_induction)
@@ -174,22 +182,15 @@ F_total = Froot.*Ftip;
 end
 
 % define function to determine load in the blade element
-function [fnorm , ftan, gamma] = loadBladeElement(vnorm, vtan, r_R, chord, twist, polar_alpha, polar_cl, polar_cd, Uaxial, Utan_yaw)
+function [fnorm , ftan, gamma] = loadBladeElement(r_R, chord, twist, polar_alpha, polar_cl, polar_cd, Uaxial, Utan_yaw)
 %     calculates the load in the blade element
-% vmag2 = vnorm^2 + vtan^2;
 vmag2 = Uaxial.^2 + Utan_yaw.^2;
-% inflowangle = atan2(vnorm,vtan);
 inflowangle = atan2(Uaxial, Utan_yaw);
 alpha = twist + inflowangle*180/pi;
 cl = interp1(polar_alpha, polar_cl, alpha);
 cd = interp1(polar_alpha, polar_cd, alpha);
-% lift = 0.5*vmag2*cl*chord;
-% drag = 0.5*vmag2*cd*chord;
 lift = 0.5*vmag2.*cl*chord;
 drag = 0.5*vmag2.*cd*chord;
-% fnorm = lift*cos(inflowangle)+drag*sin(inflowangle);
-% ftan = lift*sin(inflowangle)-drag*cos(inflowangle);
-% gamma = 0.5*sqrt(vmag2)*cl*chord;
 fnorm = lift.*cos(inflowangle)+drag.*sin(inflowangle);
 ftan = lift.*sin(inflowangle)-drag.*cos(inflowangle);
 gamma = 0.5*sqrt(vmag2).*cl*chord;
@@ -205,28 +206,26 @@ function result = solveStreamtube(Uinf, r1_R, r2_R, rootradius_R, tipradius_R , 
 %     Omega -rotational velocity
 %     NBlades - number of blades in rotor
 Area = pi*((r2_R*Radius)^2-(r1_R*Radius)^2); % area streamtube
-r_R = (r1_R+r2_R)/2; % centroide
-% initiatlize variables
-a = 0.01; % axial induction
-aline = 0.01; % tangential induction factor
+r_R = (r1_R+r2_R)/2; % centroide    
+psi = deg2rad([0:1:359]);
 
-Niterations = 100;
+% initiatlize variables
+a = zeros(1,length(psi)); % axial induction
+aline = zeros(1,length(psi)); % tangential induction factor
+
+Niterations = 10000;
 Erroriterations =0.00001; % error limit for iteration rpocess, in absolute value of induction
 
 for i=1:Niterations
     %      ///////////////////////////////////////////////////////////////////////
     %      // this is the block "Calculate velocity and loads at blade element"
     %      ///////////////////////////////////////////////////////////////////////
-    phi = deg2rad([0:1:359]);
     Uaxial = Uinf*cos(yaw)*(1-a);
-    Utan_yaw = r_R*Radius*Omega*(1+aline)-Uinf*sin(yaw)*cos(phi);
-    Urotor = Uinf*(1-a); % axial velocity at rotor
-    Utan = (1+aline)*Omega*r_R*Radius; % tangential velocity at rotor
+    Utan_yaw = r_R*Radius*Omega*(1+aline)-Uinf*sin(yaw)*cos(psi);
     
     % calculate loads in blade segment in 2D (N/m)
-    [fnorm, ftan, gamma] = loadBladeElement(Urotor, Utan, r_R,chord, twist, polar_alpha, polar_cl, polar_cd, Uaxial, Utan_yaw);
+    [fnorm, ftan, gamma] = loadBladeElement(r_R,chord, twist, polar_alpha, polar_cl, polar_cd, Uaxial, Utan_yaw);
     load3Daxial =fnorm*Radius*(r2_R-r1_R)*NBlades; % 3D force in axial direction
-    % load3Dtan =loads[1]*Radius*(r2_R-r1_R)*NBlades; % 3D force in azimuthal/tangential direction (not used here)
     
     % ///////////////////////////////////////////////////////////////////////
     % //the block "Calculate velocity and loads at blade element" is done
@@ -239,7 +238,7 @@ for i=1:Niterations
     CT = load3Daxial/(0.5*Area*Uinf^2);
     
     % calculate new axial induction, accounting for Glauert's correction
-    anew =  ainduction(CT);
+    anew =  ainduction(CT, a, yaw);
     
     % correct new axial induction with Prandtl's correction
     [Prandtl, Prandtltip, Prandtlroot] = PrandtlTipRootCorrection(r_R, rootradius_R, tipradius_R, Omega*Radius/Uinf, NBlades, anew);
@@ -262,6 +261,9 @@ for i=1:Niterations
         % print(i)
         result = [mean(a), mean(aline), r_R, mean(fnorm) , mean(ftan), mean(gamma)];
         return
+    end
+    if i==Niterations
+        disp("not converged")
     end
 end
 end
